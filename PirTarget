@@ -1,0 +1,111 @@
+use Getopt::Long;
+GetOptions
+("IN=s"=>\$IN,
+"TAR=s"=>\$TARGET,
+"STA=s"=>\$sta,
+"END=s"=>\$end,
+);
+
+$PP="list.txt";
+$fasta="fas.txt";
+$ext=40;
+
+sub complete{ chomp $_[0];
+             $com= $_[0];
+             $com =~ s/(a|A)/E/g;
+             $com =~ s/(t|T|u|U)/A/g;
+             $com =~ s/(g|G)/F/g;
+             $com =~ s/(c|C)/G/g;
+             $com =~ s/(e|E)/T/g;
+             $com =~ s/(f|F)/C/g;
+             $complete = $com;	
+             };
+sub cut { chomp $_[0];
+		  $len=length($_[0]);
+          $atcg= "(A|C|G|T|N|U)?";
+		  $stacut= $atcg x ($sta-1);
+          $_[0]=~ s/$stacut//;
+          $endcut= $atcg x ($len-$end-$sta+1);
+          $_[0]=~ s/$endcut$//;
+          $cut=$_[0];		  
+		  }
+sub cut2 { chomp $_[0];
+          $atcg= "(A|C|G|T|N|U)?";
+		  $five = $_[1]-$ext-1 ;
+		  if ($five >0){ $stacut= $atcg x ($five)}else {$stacut=0};
+		  $len = length($_[0]);
+          $_[0]=~ s/$stacut//;
+          $endcut= $atcg x ($len-$_[2]);
+          $_[0]=~ s/$endcut$//;
+		  $j=$i+1;
+          $fasta2 ="$name-$tn-$j\n$_[0]\n";
+		  $fasta2 =~ s/>//g;
+          $fasta1 = $fasta2;	  
+		  }
+
+open IN,"<$IN";
+open RC,">rc.txt";
+@IN=<IN>;
+$i=-1;
+foreach $IN(@IN){  $IN =~ s/(\r|\n)//g;
+                   if ($IN =~ />/){  $i++;
+                                     $IN2[$i]=$IN."\t";}
+					                 else{
+										        $IN2[$i]= join "",$IN2[$i],$IN;
+												}
+                                     }
+print "step 1 finished \n";
+foreach $in(@IN2){chomp $in;
+                  ($name,$seq)= split "\t",$in;
+                  chomp $name;chomp $seq;chomp $seq;
+				  &cut($seq);
+				  &complete($cut);
+				  $reverseseq =scalar reverse $seq;
+				  $revcom =scalar reverse $complete;
+				  print RC "$name\t$revcom\n"
+				  }
+print "step 2 finished \n";
+close RC;
+open RC,"<rc.txt";
+open TARGET,"<$TARGET";
+open PP,">$PP";
+open FASTA,">$fasta";
+$i=-1;
+@tar=<TARGET>;
+foreach $tar(@tar){ $tar =~ s/(\r|\n)//g;
+                    if ($tar =~ />/){ 
+                                      $i++;
+                                     $tar2[$i]=$tar."\t";}
+					                 else{
+										        $tar2[$i]= join "",$tar2[$i],$tar;
+												}
+                                     }
+print "step 3 finished \n";
+print PP "piRNA\ttarget\tnumber\tlocus\n";
+foreach $rc(<RC>){$rc =~ s/(\r|\n)//g;;
+                  ($name,$seq)= split "\t",$rc;
+				  foreach $tar(@tar2){ chomp $tar;
+				                      ($tn,$tarseq)= split"\t",$tar;
+									 if ($tarseq =~ /($seq)/){ $tarseq2=$tarseq;
+									                        my @loca=();my @loca1=();my @loca2=();
+                        									$num= $tarseq=~ s/($seq)/\t/g;
+									                        @target = split "\t",$tarseq;
+															$i=0;
+															while ($i< $num){ $tarseq3=$tarseq2;
+															                $loca1[$i]=$loca2[$i-1]+length($target[$i])+1;
+															                $loca2[$i]=$loca1[$i]+$end-$sta;
+																		    $loca[$i] = "$loca1[$i]-$loca2[$i]";
+																			&cut2 ($tarseq3,$loca1[$i],$loca2[$i]);
+																			$i++;
+																			print FASTA ">$fasta1";
+																			}
+															$loca = join "\t",@loca;
+											                $PP="$name\t$tn\t$num\t$loca\n";
+                                                            $PP=~ s/>//g;
+                                                            print PP $PP;	
+															#$fasta=~ s/>//g;
+
+									                        }
+					
+				 }					print "now $name was DONE\n";
+				  }
